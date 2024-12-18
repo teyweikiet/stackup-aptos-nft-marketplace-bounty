@@ -26,9 +26,10 @@ const MyNFTs: React.FC = () => {
   const { account, signAndSubmitTransaction } = useWallet();
   const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
 
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState<string>("");
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
   const [salePrice, setSalePrice] = useState<string>("");
+  const [recipientAddr, setRecipientAddr] = useState<string>("");
 
   const fetchUserNFTs = useCallback(async () => {
     if (!account) return;
@@ -107,13 +108,19 @@ const MyNFTs: React.FC = () => {
 
   const handleSellClick = (nft: NFT) => {
     setSelectedNft(nft);
-    setIsModalVisible(true);
+    setIsModalVisible("sell");
+  };
+
+  const handleTransferClick = (nft: NFT) => {
+    setSelectedNft(nft);
+    setIsModalVisible("transfer");
   };
 
   const handleCancel = () => {
-    setIsModalVisible(false);
+    setIsModalVisible("");
     setSelectedNft(null);
     setSalePrice("");
+    setRecipientAddr("");
   };
 
   const handleConfirmListing = async () => {
@@ -134,12 +141,37 @@ const MyNFTs: React.FC = () => {
       await client.waitForTransaction(response.hash);
   
       message.success("NFT listed for sale successfully!");
-      setIsModalVisible(false);
+      setIsModalVisible("");
       setSalePrice("");
       fetchUserNFTs();
     } catch (error) {
       console.error("Error listing NFT for sale:", error);
       message.error("Failed to list NFT for sale.");
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!selectedNft || !recipientAddr) return;
+  
+    try {
+      const entryFunctionPayload = {
+        type: "entry_function_payload",
+        function: `${marketplaceAddr}::NFTMarketplace::transfer_ownership`,
+        type_arguments: [],
+        arguments: [marketplaceAddr, selectedNft.id.toString(), recipientAddr],
+      };
+  
+      // Bypass type checking
+      const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
+      await client.waitForTransaction(response.hash);
+  
+      message.success("NFT transferred successfully!");
+      setIsModalVisible("");
+      setRecipientAddr("");
+      fetchUserNFTs();
+    } catch (error) {
+      console.error("Error transferring NFT:", error);
+      message.error("Failed to transfer NFT.");
     }
   };
 
@@ -194,6 +226,9 @@ const MyNFTs: React.FC = () => {
               actions={[
                 <Button type="link" onClick={() => handleSellClick(nft)}>
                   Sell
+                </Button>,
+                <Button type="link" onClick={() => handleTransferClick(nft)} disabled={nft.for_sale}>
+                  Transfer
                 </Button>
               ]}
             >
@@ -218,7 +253,7 @@ const MyNFTs: React.FC = () => {
   
       <Modal
         title="Sell NFT"
-        visible={isModalVisible}
+        visible={isModalVisible === "sell"}
         onCancel={handleCancel}
         footer={[
           <Button key="cancel" onClick={handleCancel}>
@@ -246,6 +281,38 @@ const MyNFTs: React.FC = () => {
             />
           </>
         )}
+      </Modal>
+
+      <Modal
+        title="Transfer NFT"
+        visible={isModalVisible === "transfer"}
+        onCancel={handleCancel}
+        footer={[
+          <Button key="cancel" onClick={handleCancel}>
+            Cancel
+          </Button>,
+          <Button key="confirm" type="primary" onClick={handleConfirmTransfer}>
+            Confirm Transfer
+          </Button>,
+        ]}
+      >
+        {
+          selectedNft && (
+            <>
+              <p><strong>NFT ID:</strong> {selectedNft.id}</p>
+              <p><strong>Name:</strong> {selectedNft.name}</p>
+              <p><strong>Description:</strong> {selectedNft.description}</p>
+              <p><strong>Rarity:</strong> {selectedNft.rarity}</p>
+    
+              <Input
+                placeholder="Enter recipient Address"
+                value={recipientAddr}
+                onChange={(e) => setRecipientAddr(e.target.value)}
+                style={{ marginTop: 10 }}
+              />
+            </>
+          )
+        }
       </Modal>
     </div>
   );  
