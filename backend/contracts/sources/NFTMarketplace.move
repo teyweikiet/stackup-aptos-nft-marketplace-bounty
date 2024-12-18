@@ -33,6 +33,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
         // TODO# 5: Set Marketplace Fee
         const MARKETPLACE_FEE_PERCENT: u64 = 2; // 2% fee
+        const MARKETPLACE_ADDR: address = @0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886;
 
         // TODO# 6: Initialize Marketplace        
         public entry fun initialize(account: &signer) {
@@ -50,7 +51,8 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
         // TODO# 8: Mint New NFT
         public entry fun mint_nft(account: &signer, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
-            let marketplace = borrow_global_mut<Marketplace>(signer::address_of(account));
+            assert!(is_marketplace_initialized(MARKETPLACE_ADDR), 1);
+            let marketplace = borrow_global_mut<Marketplace>(MARKETPLACE_ADDR);
             let nft_id = vector::length(&marketplace.nfts);
 
             let new_nft = NFT {
