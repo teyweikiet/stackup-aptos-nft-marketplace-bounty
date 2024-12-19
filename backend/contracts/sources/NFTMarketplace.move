@@ -34,6 +34,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
         // TODO# 5: Set Marketplace Fee
         const MARKETPLACE_FEE_PERCENT: u64 = 2; // 2% fee
         const MARKETPLACE_ADDR: address = @0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886;
+        const MINTING_FEE: u64 = 10000;
 
         // TODO# 6: Initialize Marketplace        
         public entry fun initialize(account: &signer) {
@@ -52,6 +53,12 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
         // TODO# 8: Mint New NFT
         public entry fun mint_nft(account: &signer, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
             assert!(is_marketplace_initialized(MARKETPLACE_ADDR), 1);
+
+            // charge minting fee if user is not marketplace owner
+            if (signer::address_of(account) != MARKETPLACE_ADDR) {
+                coin::transfer<aptos_coin::AptosCoin>(account, MARKETPLACE_ADDR, MINTING_FEE);
+            };
+
             let marketplace = borrow_global_mut<Marketplace>(MARKETPLACE_ADDR);
             let nft_id = vector::length(&marketplace.nfts);
 
@@ -115,8 +122,8 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
             let seller_revenue = payment - fee;
 
             // Transfer payment to the seller and fee to the marketplace
-            coin::transfer<aptos_coin::AptosCoin>(account, marketplace_addr, seller_revenue);
-            coin::transfer<aptos_coin::AptosCoin>(account, signer::address_of(account), fee);
+            coin::transfer<aptos_coin::AptosCoin>(account, nft_ref.owner, seller_revenue);
+            coin::transfer<aptos_coin::AptosCoin>(account, marketplace_addr, fee);
 
             // Transfer ownership
             nft_ref.owner = signer::address_of(account);
