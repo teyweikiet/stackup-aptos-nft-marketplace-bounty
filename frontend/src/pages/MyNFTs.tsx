@@ -221,8 +221,11 @@ const MyNFTs: React.FC = () => {
                 maxWidth: "280px", // Increase max width to improve spacing
                 minWidth: "220px",  // Increase minimum width to prevent stacking
                 margin: "0 auto",
+                display: "flex",
+                flexDirection: "column",
               }}
               cover={<img alt={nft.name} src={nft.uri} />}
+              bodyStyle={{ flex: 1 }}
               actions={[
                 <Button type="link" onClick={() => handleSellClick(nft)}>
                   Sell

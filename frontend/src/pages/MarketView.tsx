@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal } from "antd";
+import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal, Select, Space } from "antd";
+import { DownOutlined } from '@ant-design/icons';
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
@@ -44,7 +45,9 @@ const truncateAddress = (address: string, start = 6, end = 4) => {
 const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
   const { signAndSubmitTransaction } = useWallet();
   const [nfts, setNfts] = useState<NFT[]>([]);
+  const [nftsToDisplay, setNftsToDisplay] = useState<NFT[]>([]);
   const [rarity, setRarity] = useState<'all' | number>('all');
+  const [sortOption, setSortOption] = useState<string>('latest');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
@@ -55,6 +58,27 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     handleFetchNfts(undefined);
   }, []);
 
+  useEffect(() => {
+    let _nftsToDisplay = [...nfts];
+    if (rarity && rarity !== 'all') {
+      _nftsToDisplay = _nftsToDisplay.filter(nft => nft.rarity === rarity);
+    }
+
+    switch (sortOption) {
+      case 'latest':
+        setNftsToDisplay(_nftsToDisplay.sort((a, b) => b.id - a.id));
+        break;
+      case 'price:asc':
+        setNftsToDisplay(_nftsToDisplay.sort((a, b) => a.price - b.price));
+        break;
+      case 'price:desc':
+        setNftsToDisplay(_nftsToDisplay.sort((a, b) => b.price - a.price));
+        break;
+      default:
+        setNftsToDisplay(_nftsToDisplay);
+    }
+  }, [rarity, nfts, sortOption])
+
   const handleFetchNfts = async (selectedRarity: number | undefined) => {
     try {
       const nftIdsResponse = await client.view({
@@ -64,7 +88,6 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
       });
       console.log(nftIdsResponse)
       const nftIds = (Array.isArray(nftIdsResponse[0]) ? nftIdsResponse[0] : nftIdsResponse).map(({ id }) => id);
-      // setTotalNFTs(nftIds.length);
 
       if (nftIds.length === 0) {
         console.log("No NFTs found for the owner.");
@@ -74,7 +97,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
 
       console.log("Fetching details for each NFT ID:", nftIds);
 
-      const userNFTs = (await Promise.all(
+      const nftsForSale = (await Promise.all(
         nftIds.map(async (id) => {
           try {
             const nftDetails = await client.view({
@@ -119,40 +142,13 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         })
       )).filter((nft): nft is NFT => nft !== null);
 
-      // console.log("User NFTs:", userNFTs);
-      setNfts(userNFTs);
-        // const response = await client.getAccountResource(
-        //     marketplaceAddr,
-        //     "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886::NFTMarketplace::Marketplace"
-        // );
-        // const nftList = (response.data as { nfts: NFT[] }).nfts;
-
-        // const hexToUint8Array = (hexString: string): Uint8Array => {
-        //     const bytes = new Uint8Array(hexString.length / 2);
-        //     for (let i = 0; i < hexString.length; i += 2) {
-        //         bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
-        //     }
-        //     return bytes;
-        // };
-
-        // const decodedNfts = nftList.map((nft) => ({
-        //     ...nft,
-        //     name: new TextDecoder().decode(hexToUint8Array(nft.name.slice(2))),
-        //     description: new TextDecoder().decode(hexToUint8Array(nft.description.slice(2))),
-        //     uri: new TextDecoder().decode(hexToUint8Array(nft.uri.slice(2))),
-        //     price: nft.price / 100000000,
-        // }));
-
-        // // Filter NFTs based on `for_sale` property and rarity if selected
-        // const filteredNfts = decodedNfts.filter((nft) => nft.for_sale && (selectedRarity === undefined || nft.rarity === selectedRarity));
-
-        // setNfts(filteredNfts);
-        setCurrentPage(1);
+      setNfts(nftsForSale);
+      setCurrentPage(1);
     } catch (error) {
-        console.error("Error fetching NFTs by rarity:", error);
-        message.error("Failed to fetch NFTs.");
+      console.error("Error fetching NFTs by rarity:", error);
+      message.error("Failed to fetch NFTs.");
     }
-};
+  };
 
   const handleBuyClick = (nft: NFT) => {
     setSelectedNft(nft);
@@ -190,7 +186,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     }
   };
 
-  const paginatedNfts = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedNfts = nftsToDisplay.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div
@@ -199,12 +195,19 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        minHeight: "calc(100vh - 64px)", // Subtract header height from 100vh",
       }}
     >
       <Title level={2} style={{ marginBottom: "20px" }}>Marketplace</Title>
   
       {/* Filter Buttons */}
-      <div style={{ marginBottom: "20px" }}>
+      <div
+        style={{
+          marginBottom: "20px",
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
         <Radio.Group
           value={rarity}
           onChange={(e) => {
@@ -220,6 +223,20 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
           <Radio.Button value={3}>Rare</Radio.Button>
           <Radio.Button value={4}>Super Rare</Radio.Button>
         </Radio.Group>
+
+        <Select
+          style={{ width: '225px'}}
+          prefix="Sort by"
+          defaultValue="latest"
+          options={[
+            { value: 'latest', label: 'Latest' },
+            { value: 'price:asc', label: 'Price: Low to High' },
+            { value: 'price:desc', label: 'Price: High to Low' },
+          ]}
+          onChange={(value: string) => {
+            setSortOption(value);
+          }}
+        />
       </div>
   
       {/* Card Grid */}
@@ -231,6 +248,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
           display: "flex",
           justifyContent: "center", // Center row content
           flexWrap: "wrap",
+          flex: "1"
         }}
       >
         {paginatedNfts.map((nft) => (
@@ -249,8 +267,11 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
                 width: "100%", // Make the card responsive
                 maxWidth: "240px", // Limit the card width on larger screens
                 margin: "0 auto",
+                display: "flex",
+                flexDirection: "column",
               }}
               cover={<img alt={nft.name} src={nft.uri} />}
+              bodyStyle={{ flex: 1 }}
               actions={[
                 <Button type="link" onClick={() => handleBuyClick(nft)}>
                   Buy
@@ -279,7 +300,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         <Pagination
           current={currentPage}
           pageSize={pageSize}
-          total={nfts.length}
+          total={nftsToDisplay.length}
           onChange={(page) => setCurrentPage(page)}
           style={{ display: "flex", justifyContent: "center" }}
         />
