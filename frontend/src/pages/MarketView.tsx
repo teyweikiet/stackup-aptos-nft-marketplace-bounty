@@ -225,7 +225,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         </Radio.Group>
 
         <Select
-          style={{ width: '225px'}}
+          style={{ width: '225px', marginLeft: '10px' }}
           prefix="Sort by"
           defaultValue="latest"
           options={[
@@ -264,6 +264,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
             <Card
               hoverable
               style={{
+                height: "100%",
                 width: "100%", // Make the card responsive
                 maxWidth: "240px", // Limit the card width on larger screens
                 margin: "0 auto",

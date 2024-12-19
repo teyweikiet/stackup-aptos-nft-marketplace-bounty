@@ -133,7 +133,7 @@ const MyNFTs: React.FC = () => {
         type: "entry_function_payload",
         function: `${marketplaceAddr}::NFTMarketplace::list_for_sale`,
         type_arguments: [],
-        arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toString()],
+        arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toFixed(0).toString()],
       };
   
       // Bypass type checking
