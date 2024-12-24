@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal, Select, Space } from "antd";
-import { DownOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo } from "react";
+import { Typography, Radio, message, Card, Row, Col, Pagination, Button, Modal, Select } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import RarityTag from "../components/RarityTag";
 
 const { Title } = Typography;
 const { Meta } = Card;
@@ -18,75 +18,60 @@ type NFT = {
   price: number;
   for_sale: boolean;
   rarity: number;
+  date_listed: number;
 };
 
 interface MarketViewProps {
   marketplaceAddr: string;
+  marketplaceContractName: string;
 }
-
-const rarityColors: { [key: number]: string } = {
-  1: "green",
-  2: "blue",
-  3: "purple",
-  4: "orange",
-};
-
-const rarityLabels: { [key: number]: string } = {
-  1: "Common",
-  2: "Uncommon",
-  3: "Rare",
-  4: "Super Rare",
-};
 
 const truncateAddress = (address: string, start = 6, end = 4) => {
   return `${address.slice(0, start)}...${address.slice(-end)}`;
 };
 
-const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
+const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceContractName }) => {
   const { signAndSubmitTransaction } = useWallet();
   const [nfts, setNfts] = useState<NFT[]>([]);
-  const [nftsToDisplay, setNftsToDisplay] = useState<NFT[]>([]);
   const [rarity, setRarity] = useState<'all' | number>('all');
-  const [sortOption, setSortOption] = useState<string>('latest');
+  const [sortOption, setSortOption] = useState<string>('date_listed:desc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
   const [isBuyModalVisible, setIsBuyModalVisible] = useState(false);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
 
-  useEffect(() => {
-    handleFetchNfts(undefined);
-  }, []);
-
-  useEffect(() => {
+  const nftsToDisplay = useMemo(() => {
     let _nftsToDisplay = [...nfts];
     if (rarity && rarity !== 'all') {
       _nftsToDisplay = _nftsToDisplay.filter(nft => nft.rarity === rarity);
     }
 
     switch (sortOption) {
-      case 'latest':
-        setNftsToDisplay(_nftsToDisplay.sort((a, b) => b.id - a.id));
-        break;
+      case 'date_listed:desc':
+        return _nftsToDisplay.sort((a, b) => b.date_listed - a.date_listed);
+      case 'id:desc':
+        return _nftsToDisplay.sort((a, b) => b.id - a.id);
       case 'price:asc':
-        setNftsToDisplay(_nftsToDisplay.sort((a, b) => a.price - b.price));
-        break;
+        return _nftsToDisplay.sort((a, b) => a.price - b.price);
       case 'price:desc':
-        setNftsToDisplay(_nftsToDisplay.sort((a, b) => b.price - a.price));
-        break;
+        return _nftsToDisplay.sort((a, b) => b.price - a.price);
       default:
-        setNftsToDisplay(_nftsToDisplay);
+        return _nftsToDisplay;
     }
-  }, [rarity, nfts, sortOption])
+  }, [rarity, nfts, sortOption]);
 
-  const handleFetchNfts = async (selectedRarity: number | undefined) => {
+  useEffect(() => {
+    handleFetchNfts();
+  }, []);
+
+  const handleFetchNfts = async () => {
     try {
       const nftIdsResponse = await client.view({
-        function: `${marketplaceAddr}::NFTMarketplace::get_all_nfts_for_sale`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::get_all_nfts_for_sale`,
         arguments: [marketplaceAddr, "100", "0"],
         type_arguments: [],
       });
-      console.log(nftIdsResponse)
       const nftIds = (Array.isArray(nftIdsResponse[0]) ? nftIdsResponse[0] : nftIdsResponse).map(({ id }) => id);
 
       if (nftIds.length === 0) {
@@ -95,18 +80,16 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         return;
       }
 
-      console.log("Fetching details for each NFT ID:", nftIds);
-
       const nftsForSale = (await Promise.all(
         nftIds.map(async (id) => {
           try {
             const nftDetails = await client.view({
-              function: `${marketplaceAddr}::NFTMarketplace::get_nft_details`,
+              function: `${marketplaceAddr}::${marketplaceContractName}::get_nft_details`,
               arguments: [marketplaceAddr, id],
               type_arguments: [],
             });
 
-            const [nftId, owner, name, description, uri, price, forSale, rarity] = nftDetails as [
+            const [nftId, owner, name, description, uri, price, forSale, rarity, dateListed] = nftDetails as [
               number,
               string,
               string,
@@ -114,6 +97,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
               string,
               number,
               boolean,
+              number,
               number
             ];
 
@@ -134,6 +118,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
               price: price / 100000000, // Convert octas to APT
               for_sale: forSale,
               owner,
+              date_listed: dateListed
             };
           } catch (error) {
             console.error(`Error fetching details for NFT ID ${id}:`, error);
@@ -141,7 +126,6 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
           }
         })
       )).filter((nft): nft is NFT => nft !== null);
-
       setNfts(nftsForSale);
       setCurrentPage(1);
     } catch (error) {
@@ -168,7 +152,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
   
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::purchase_nft`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::purchase_nft`,
         type_arguments: [],
         arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toString()],
       };
@@ -178,7 +162,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
   
       message.success("NFT purchased successfully!");
       setIsBuyModalVisible(false);
-      handleFetchNfts(rarity === 'all' ? undefined : rarity); // Refresh NFT list
+      handleFetchNfts(); // Refresh NFT list
       console.log("signAndSubmitTransaction:", signAndSubmitTransaction);
     } catch (error) {
       console.error("Error purchasing NFT:", error);
@@ -213,7 +197,6 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
           onChange={(e) => {
             const selectedRarity = e.target.value;
             setRarity(selectedRarity);
-            handleFetchNfts(selectedRarity === 'all' ? undefined : selectedRarity);
           }}
           buttonStyle="solid"
         >
@@ -227,9 +210,10 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         <Select
           style={{ width: '225px', marginLeft: '10px' }}
           prefix="Sort by"
-          defaultValue="latest"
+          defaultValue="date_listed:desc"
           options={[
-            { value: 'latest', label: 'Latest' },
+            { value: 'date_listed:desc', label: 'Last Listed' },
+            { value: 'id:desc', label: 'Last Minted' },
             { value: 'price:asc', label: 'Price: Low to High' },
             { value: 'price:desc', label: 'Price: High to Low' },
           ]}
@@ -248,7 +232,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
           display: "flex",
           justifyContent: "center", // Center row content
           flexWrap: "wrap",
-          flex: "1"
+          flex: 1
         }}
       >
         {paginatedNfts.map((nft) => (
@@ -280,12 +264,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
               ]}
             >
               {/* Rarity Tag */}
-              <Tag
-                color={rarityColors[nft.rarity]}
-                style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "10px" }}
-              >
-                {rarityLabels[nft.rarity]}
-              </Tag>
+              <RarityTag nft={nft} style={{ marginBottom: 10 }} />
   
               <Meta title={nft.name} description={`Price: ${nft.price} APT`} />
               <p>{nft.description}</p>
@@ -326,7 +305,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
             <p><strong>NFT ID:</strong> {selectedNft.id}</p>
             <p><strong>Name:</strong> {selectedNft.name}</p>
             <p><strong>Description:</strong> {selectedNft.description}</p>
-            <p><strong>Rarity:</strong> {rarityLabels[selectedNft.rarity]}</p>
+            <p><strong>Rarity:</strong> <RarityTag nft={selectedNft} /></p>
             <p><strong>Price:</strong> {selectedNft.price} APT</p>
             <p><strong>Owner:</strong> {truncateAddress(selectedNft.owner)}</p>
           </>

@@ -12,6 +12,7 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
 const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
+const marketplaceContractName = "NFTMarketplaceV3";
 
 function App() {
   const { signAndSubmitTransaction } = useWallet();
@@ -28,9 +29,9 @@ function App() {
 
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::mint_nft`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::mint_nft`,
         type_arguments: [],
-        arguments: [nameVector, descriptionVector, uriVector, values.rarity],
+        arguments: [marketplaceAddr, nameVector, descriptionVector, uriVector, values.rarity],
       };
 
       const txnResponse = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
@@ -50,7 +51,7 @@ function App() {
         <NavBar onMintNFTClick={handleMintNFTClick} /> {/* Pass handleMintNFTClick to NavBar */}
 
         <Routes>
-          <Route path="/" element={<MarketView marketplaceAddr={marketplaceAddr} />} />
+          <Route path="/" element={<MarketView marketplaceAddr={marketplaceAddr} marketplaceContractName={marketplaceContractName} />} />
           <Route path="/my-nfts" element={<MyNFTs />} />
         </Routes>
 

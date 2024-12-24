@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Typography, Card, Row, Col, Pagination, message, Button, Input, Modal } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import RarityTag from "../components/RarityTag";
 
 const { Title } = Typography;
 const { Meta } = Card;
@@ -18,13 +19,15 @@ type NFT = {
   for_sale: boolean;
 };
 
+const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
+const marketplaceContractName = "NFTMarketplaceV3";
+
 const MyNFTs: React.FC = () => {
   const pageSize = 8;
   const [currentPage, setCurrentPage] = useState(1);
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [totalNFTs, setTotalNFTs] = useState(0);
   const { account, signAndSubmitTransaction } = useWallet();
-  const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
 
   const [isModalVisible, setIsModalVisible] = useState<string>("");
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -38,7 +41,7 @@ const MyNFTs: React.FC = () => {
       console.log("Fetching NFT IDs for owner:", account.address);
 
       const nftIdsResponse = await client.view({
-        function: `${marketplaceAddr}::NFTMarketplace::get_all_nfts_for_owner`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::get_all_nfts_for_owner`,
         arguments: [marketplaceAddr, account.address, "100", "0"],
         type_arguments: [],
       });
@@ -58,12 +61,12 @@ const MyNFTs: React.FC = () => {
         nftIds.map(async (id) => {
           try {
             const nftDetails = await client.view({
-              function: `${marketplaceAddr}::NFTMarketplace::get_nft_details`,
+              function: `${marketplaceAddr}::${marketplaceContractName}::get_nft_details`,
               arguments: [marketplaceAddr, id],
               type_arguments: [],
             });
 
-            const [nftId, owner, name, description, uri, price, forSale, rarity] = nftDetails as [
+            const [nftId, _, name, description, uri, price, forSale, rarity] = nftDetails as [
               number,
               string,
               string,
@@ -131,7 +134,7 @@ const MyNFTs: React.FC = () => {
   
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::list_for_sale`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::list_for_sale`,
         type_arguments: [],
         arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toFixed(0).toString()],
       };
@@ -156,7 +159,7 @@ const MyNFTs: React.FC = () => {
     try {
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::transfer_ownership`,
+        function: `${marketplaceAddr}::${marketplaceContractName}::transfer_ownership`,
         type_arguments: [],
         arguments: [marketplaceAddr, selectedNft.id.toString(), recipientAddr],
       };
@@ -177,7 +180,7 @@ const MyNFTs: React.FC = () => {
 
   useEffect(() => {
     fetchUserNFTs();
-  }, [fetchUserNFTs, currentPage]);
+  }, [fetchUserNFTs]);
 
   const paginatedNFTs = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -188,6 +191,7 @@ const MyNFTs: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        minHeight: "calc(100vh - 64px)", // Subtract header height from 100vh",
       }}
     >
       <Title level={2} style={{ marginBottom: "20px" }}>My Collection</Title>
@@ -203,6 +207,7 @@ const MyNFTs: React.FC = () => {
           display: "flex",
           justifyContent: "center",
           flexWrap: "wrap",
+          flex: 1
         }}
       >
         {paginatedNFTs.map((nft) => (
@@ -227,7 +232,7 @@ const MyNFTs: React.FC = () => {
               cover={<img alt={nft.name} src={nft.uri} />}
               bodyStyle={{ flex: 1 }}
               actions={[
-                <Button type="link" onClick={() => handleSellClick(nft)}>
+                <Button type="link" onClick={() => handleSellClick(nft)} disabled={nft.for_sale}>
                   Sell
                 </Button>,
                 <Button type="link" onClick={() => handleTransferClick(nft)} disabled={nft.for_sale}>
@@ -235,7 +240,8 @@ const MyNFTs: React.FC = () => {
                 </Button>
               ]}
             >
-              <Meta title={nft.name} description={`Rarity: ${nft.rarity}, Price: ${nft.price} APT`} />
+              <RarityTag nft={nft} style={{ marginBottom: "10px" }} />
+              <Meta title={nft.name} description={`Price: ${nft.price} APT`} />
               <p>ID: {nft.id}</p>
               <p>{nft.description}</p>
               <p style={{ margin: "10px 0" }}>For Sale: {nft.for_sale ? "Yes" : "No"}</p>
