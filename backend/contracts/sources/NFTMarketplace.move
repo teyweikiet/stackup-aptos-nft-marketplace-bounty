@@ -1,11 +1,12 @@
 // TODO# 1: Define Module and Marketplace Address
 address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
-    module NFTMarketplace {
+    module NFTMarketplaceV3 {
         use 0x1::signer;
         use 0x1::vector;
         use 0x1::coin;
         use 0x1::aptos_coin;
+        use std::timestamp;
 
         // TODO# 2: Define NFT Structure
         struct NFT has store, key {
@@ -16,7 +17,8 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
             uri: vector<u8>,
             price: u64,
             for_sale: bool,
-            rarity: u8  // 1 for common, 2 for rare, 3 for epic, etc.
+            rarity: u8,  // 1 for common, 2 for rare, 3 for epic, etc.
+            date_listed: u64
         }
 
         // TODO# 3: Define Marketplace Structure
@@ -33,8 +35,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
         // TODO# 5: Set Marketplace Fee
         const MARKETPLACE_FEE_PERCENT: u64 = 2; // 2% fee
-        const MARKETPLACE_ADDR: address = @0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886;
-        const MINTING_FEE: u64 = 10000;
+        const MINTING_FEE: u64 = 20000;
 
         // TODO# 6: Initialize Marketplace        
         public entry fun initialize(account: &signer) {
@@ -51,15 +52,15 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
         }
 
         // TODO# 8: Mint New NFT
-        public entry fun mint_nft(account: &signer, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
-            assert!(is_marketplace_initialized(MARKETPLACE_ADDR), 1);
+        public entry fun mint_nft(account: &signer, marketplace_addr: address, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
+            assert!(is_marketplace_initialized(marketplace_addr), 1);
 
             // charge minting fee if user is not marketplace owner
-            if (signer::address_of(account) != MARKETPLACE_ADDR) {
-                coin::transfer<aptos_coin::AptosCoin>(account, MARKETPLACE_ADDR, MINTING_FEE);
+            if (signer::address_of(account) != marketplace_addr) {
+                coin::transfer<aptos_coin::AptosCoin>(account, marketplace_addr, MINTING_FEE);
             };
 
-            let marketplace = borrow_global_mut<Marketplace>(MARKETPLACE_ADDR);
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
             let nft_id = vector::length(&marketplace.nfts);
 
             let new_nft = NFT {
@@ -70,7 +71,8 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
                 uri,
                 price: 0,
                 for_sale: false,
-                rarity
+                rarity,
+                date_listed: 0
             };
 
             vector::push_back(&mut marketplace.nfts, new_nft);
@@ -78,11 +80,11 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
         // TODO# 9: View NFT Details
         #[view]
-        public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8) acquires Marketplace {
+        public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8, u64) acquires Marketplace {
             let marketplace = borrow_global<Marketplace>(marketplace_addr);
             let nft = vector::borrow(&marketplace.nfts, nft_id);
 
-            (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity)
+            (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity, nft.date_listed)
         }
         
         // TODO# 10: List NFT for Sale
@@ -96,6 +98,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
 
             nft_ref.for_sale = true;
             nft_ref.price = price;
+            nft_ref.date_listed = timestamp::now_microseconds();
         }
 
         // TODO# 11: Update NFT Price
@@ -129,6 +132,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
             nft_ref.owner = signer::address_of(account);
             nft_ref.for_sale = false;
             nft_ref.price = 0;
+            nft_ref.date_listed = 0;
         }
 
         // TODO# 13: Check if NFT is for Sale
@@ -159,6 +163,7 @@ address 0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886 {
             nft_ref.owner = new_owner;
             nft_ref.for_sale = false;
             nft_ref.price = 0;
+            nft_ref.date_listed = 0;
         }
 
         // TODO# 16: Retrieve NFT Owner

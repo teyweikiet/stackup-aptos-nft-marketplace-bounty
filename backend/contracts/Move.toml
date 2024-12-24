@@ -1,9 +1,9 @@
 [package]
-name = "NFTMarketplace"
+name = "NFTMarketplaceV3"
 version = "0.1.0"
 
 [addresses]
-NFTMarketplace = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886"
+NFTMarketplaceV3 = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886"
 aptos_framework = "0x1"
 primitives = "0xCAFE"
 
