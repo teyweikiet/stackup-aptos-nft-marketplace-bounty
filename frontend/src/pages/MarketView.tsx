@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy } from "react";
+import React, { useState, useEffect, useMemo, useCallback, lazy } from "react";
 import { Typography, message, Card, Row, Col, Pagination, Button, Select, Space } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
@@ -66,7 +66,7 @@ const MarketView: React.FC = () => {
     }
   }, [rarity, nfts, sortOption, priceRange]);
 
-  const handleFetchNfts = async () => {
+  const handleFetchNfts = useCallback(async () => {
     try {
       const nftIdsResponse = await client.view({
         function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::get_all_nfts_for_sale`,
@@ -133,7 +133,7 @@ const MarketView: React.FC = () => {
       console.error("Error fetching NFTs by rarity:", error);
       message.error("Failed to fetch NFTs.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     handleFetchNfts();

@@ -26,7 +26,7 @@ const MyNFTs: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [totalNFTs, setTotalNFTs] = useState(0);
-  const { account, signAndSubmitTransaction } = useWallet();
+  const { account } = useWallet();
 
   const [isModalVisible, setIsModalVisible] = useState<string>("");
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -65,7 +65,7 @@ const MyNFTs: React.FC = () => {
               type_arguments: [],
             });
 
-            const [nftId, _, name, description, uri, price, forSale, rarity] = nftDetails as [
+            const [nftId, , name, description, uri, price, forSale, rarity] = nftDetails as [
               number,
               string,
               string,

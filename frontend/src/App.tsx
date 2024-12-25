@@ -8,14 +8,12 @@ import MarketView from "./pages/MarketView";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MyNFTs from "./pages/MyNFTs";
 import { AptosClient } from "aptos";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const Modal = lazy(() => import("antd/lib/modal/Modal"));
 
 const client = new AptosClient(process.env.REACT_APP_APTOS_URL!);
 
 function App() {
-  const { signAndSubmitTransaction } = useWallet();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Function to open the Mint NFT modal
