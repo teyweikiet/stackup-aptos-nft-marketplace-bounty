@@ -4,19 +4,21 @@ import { WalletSelector } from "@aptos-labs/wallet-adapter-ant-design";
 import "@aptos-labs/wallet-adapter-ant-design/dist/index.css";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { AptosClient } from "aptos";
-import { AccountBookOutlined, DownOutlined, LogoutOutlined } from "@ant-design/icons";
-import { Link } from "react-router-dom";
+import { DownOutlined, LogoutOutlined } from "@ant-design/icons";
+import { Link, useLocation } from "react-router-dom";
 
 const { Header } = Layout;
 const { Text } = Typography;
 
-const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
+const client = new AptosClient(process.env.REACT_APP_APTOS_URL!);
 
 interface NavBarProps {
   onMintNFTClick: () => void;
 }
 
 const NavBar: React.FC<NavBarProps> = ({ onMintNFTClick }) => {
+  const { pathname } = useLocation();
+  const defaultSelectedKeys = [pathname.split("/")[1] || "marketplace"];
   const { connected, account, network, disconnect } = useWallet(); // Add disconnect here
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -67,12 +69,19 @@ const NavBar: React.FC<NavBarProps> = ({ onMintNFTClick }) => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center" }}>
-        <img src="/Aptos_Primary_WHT.png" alt="Aptos Logo" style={{ height: "30px", marginRight: 16 }} />
-        <Menu theme="dark" mode="horizontal" defaultSelectedKeys={["marketplace"]} style={{ backgroundColor: "#001529" }}>
+        <Link to="/" style={{ lineHeight: "100%" }}>
+          <img src="/Aptos_Primary_WHT.png" alt="Aptos Logo" style={{ height: "30px", marginRight: 16 }} />
+        </Link>
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          defaultSelectedKeys={defaultSelectedKeys}
+          style={{ backgroundColor: "#001529" }}
+        >
           <Menu.Item key="marketplace">
             <Link to="/" style={{ color: "#fff" }}>Marketplace</Link>
           </Menu.Item>
-          <Menu.Item key="my-collection">
+          <Menu.Item key="my-nfts">
             <Link to="/my-nfts" style={{ color: "#fff" }}>My Collection</Link>
           </Menu.Item>
           <Menu.Item key="mint-nft" onClick={onMintNFTClick}>

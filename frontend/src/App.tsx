@@ -1,8 +1,8 @@
 // src/App.tsx
 
-import React, { useState } from "react";
+import { lazy, useState } from "react";
 import "./App.css";
-import { Layout, Modal, Form, Input, Select, Button, message } from "antd";
+import { Layout, Form, Input, Select, Button, message } from "antd";
 import NavBar from "./components/NavBar";
 import MarketView from "./pages/MarketView";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -10,9 +10,9 @@ import MyNFTs from "./pages/MyNFTs";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
-const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
-const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
-const marketplaceContractName = "NFTMarketplaceV3";
+const Modal = lazy(() => import("antd/lib/modal/Modal"));
+
+const client = new AptosClient(process.env.REACT_APP_APTOS_URL!);
 
 function App() {
   const { signAndSubmitTransaction } = useWallet();
@@ -29,9 +29,9 @@ function App() {
 
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::${marketplaceContractName}::mint_nft`,
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::mint_nft`,
         type_arguments: [],
-        arguments: [marketplaceAddr, nameVector, descriptionVector, uriVector, values.rarity],
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, nameVector, descriptionVector, uriVector, values.rarity],
       };
 
       const txnResponse = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
@@ -51,13 +51,13 @@ function App() {
         <NavBar onMintNFTClick={handleMintNFTClick} /> {/* Pass handleMintNFTClick to NavBar */}
 
         <Routes>
-          <Route path="/" element={<MarketView marketplaceAddr={marketplaceAddr} marketplaceContractName={marketplaceContractName} />} />
+          <Route path="/" element={<MarketView />} />
           <Route path="/my-nfts" element={<MyNFTs />} />
         </Routes>
 
         <Modal
           title="Mint New NFT"
-          visible={isModalVisible}
+          open={isModalVisible}
           onCancel={() => setIsModalVisible(false)}
           footer={null}
         >

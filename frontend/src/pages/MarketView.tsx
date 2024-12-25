@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Typography, Radio, message, Card, Row, Col, Pagination, Button, Modal, Select } from "antd";
+import React, { useState, useEffect, useMemo, lazy } from "react";
+import { Typography, message, Card, Row, Col, Pagination, Button, Select, Space } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import RarityTag from "../components/RarityTag";
+import PriceSlider from "../components/PriceSlider";
+
+const Modal = lazy(() => import("antd/lib/modal/Modal"));
 
 const { Title } = Typography;
 const { Meta } = Card;
 
-const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
+const client = new AptosClient(process.env.REACT_APP_APTOS_URL!);
 
 type NFT = {
   id: number;
@@ -21,20 +24,16 @@ type NFT = {
   date_listed: number;
 };
 
-interface MarketViewProps {
-  marketplaceAddr: string;
-  marketplaceContractName: string;
-}
-
 const truncateAddress = (address: string, start = 6, end = 4) => {
   return `${address.slice(0, start)}...${address.slice(-end)}`;
 };
 
-const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceContractName }) => {
+const MarketView: React.FC = () => {
   const { signAndSubmitTransaction } = useWallet();
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [rarity, setRarity] = useState<'all' | number>('all');
   const [sortOption, setSortOption] = useState<string>('date_listed:desc');
+  const [priceRange, setPriceRange] = useState<number[]>([0.001, 100]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
@@ -42,11 +41,17 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
 
   const nftsToDisplay = useMemo(() => {
-    let _nftsToDisplay = [...nfts];
-    if (rarity && rarity !== 'all') {
-      _nftsToDisplay = _nftsToDisplay.filter(nft => nft.rarity === rarity);
-    }
+    const [minPrice, maxPrice] = priceRange;
 
+    let _nftsToDisplay = [...nfts]
+      .filter(nft => {
+        if (nft.price < minPrice || nft.price > maxPrice)
+          return false;
+        if (rarity && rarity !== 'all')
+          return nft.rarity === rarity;
+        return true;
+      });
+    
     switch (sortOption) {
       case 'date_listed:desc':
         return _nftsToDisplay.sort((a, b) => b.date_listed - a.date_listed);
@@ -59,17 +64,13 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
       default:
         return _nftsToDisplay;
     }
-  }, [rarity, nfts, sortOption]);
-
-  useEffect(() => {
-    handleFetchNfts();
-  }, []);
+  }, [rarity, nfts, sortOption, priceRange]);
 
   const handleFetchNfts = async () => {
     try {
       const nftIdsResponse = await client.view({
-        function: `${marketplaceAddr}::${marketplaceContractName}::get_all_nfts_for_sale`,
-        arguments: [marketplaceAddr, "100", "0"],
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::get_all_nfts_for_sale`,
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, "100", "0"],
         type_arguments: [],
       });
       const nftIds = (Array.isArray(nftIdsResponse[0]) ? nftIdsResponse[0] : nftIdsResponse).map(({ id }) => id);
@@ -84,8 +85,8 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
         nftIds.map(async (id) => {
           try {
             const nftDetails = await client.view({
-              function: `${marketplaceAddr}::${marketplaceContractName}::get_nft_details`,
-              arguments: [marketplaceAddr, id],
+              function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::get_nft_details`,
+              arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, id],
               type_arguments: [],
             });
 
@@ -134,6 +135,10 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
     }
   };
 
+  useEffect(() => {
+    handleFetchNfts();
+  }, [handleFetchNfts]);
+
   const handleBuyClick = (nft: NFT) => {
     setSelectedNft(nft);
     setIsBuyModalVisible(true);
@@ -152,9 +157,9 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
   
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::${marketplaceContractName}::purchase_nft`,
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::purchase_nft`,
         type_arguments: [],
-        arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toString()],
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, selectedNft.id.toString(), priceInOctas.toString()],
       };
   
       const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
@@ -184,31 +189,34 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
     >
       <Title level={2} style={{ marginBottom: "20px" }}>Marketplace</Title>
   
-      {/* Filter Buttons */}
-      <div
+      {/* Filter & Sort Buttons */}
+      <Space
         style={{
           marginBottom: "20px",
           display: 'flex',
           alignItems: 'center',
         }}
       >
-        <Radio.Group
-          value={rarity}
-          onChange={(e) => {
-            const selectedRarity = e.target.value;
-            setRarity(selectedRarity);
+        <Select
+          style={{ width: '160px' }}
+          prefix="Rarity"
+          defaultValue="all"
+          options={[
+            { value: "all", label: 'All' },
+            { value: 1, label: 'Common' },
+            { value: 2, label: 'Uncommon' },
+            { value: 3, label: 'Rare' },
+            { value: 4, label: 'Super Rare' },
+          ]}
+          onChange={(value: "all" | number) => {
+            setRarity(value);
           }}
-          buttonStyle="solid"
-        >
-          <Radio.Button value="all">All</Radio.Button>
-          <Radio.Button value={1}>Common</Radio.Button>
-          <Radio.Button value={2}>Uncommon</Radio.Button>
-          <Radio.Button value={3}>Rare</Radio.Button>
-          <Radio.Button value={4}>Super Rare</Radio.Button>
-        </Radio.Group>
+        />
+
+        <PriceSlider onChangeComplete={setPriceRange} />
 
         <Select
-          style={{ width: '225px', marginLeft: '10px' }}
+          style={{ width: '225px' }}
           prefix="Sort by"
           defaultValue="date_listed:desc"
           options={[
@@ -221,7 +229,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
             setSortOption(value);
           }}
         />
-      </div>
+      </Space>
   
       {/* Card Grid */}
       <Row
@@ -289,7 +297,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr, marketplaceCon
       {/* Buy Modal */}
       <Modal
         title="Purchase NFT"
-        visible={isBuyModalVisible}
+        open={isBuyModalVisible}
         onCancel={handleCancelBuy}
         footer={[
           <Button key="cancel" onClick={handleCancelBuy}>

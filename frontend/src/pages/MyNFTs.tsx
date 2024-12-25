@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Typography, Card, Row, Col, Pagination, message, Button, Input, Modal } from "antd";
+import React, { useEffect, useState, useCallback, lazy } from "react";
+import { Typography, Card, Row, Col, Pagination, message, Button, Input } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import RarityTag from "../components/RarityTag";
 
+const Modal = lazy(() => import("antd/lib/modal/Modal"));
+
 const { Title } = Typography;
 const { Meta } = Card;
 
-const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
+const client = new AptosClient(process.env.REACT_APP_APTOS_URL!);
 
 type NFT = {
   id: number;
@@ -18,9 +20,6 @@ type NFT = {
   price: number;
   for_sale: boolean;
 };
-
-const marketplaceAddr = "0x789cd3639816774c8529baedbd1a346944cdeb8efc893f8295e0064cd86a4886";
-const marketplaceContractName = "NFTMarketplaceV3";
 
 const MyNFTs: React.FC = () => {
   const pageSize = 8;
@@ -41,8 +40,8 @@ const MyNFTs: React.FC = () => {
       console.log("Fetching NFT IDs for owner:", account.address);
 
       const nftIdsResponse = await client.view({
-        function: `${marketplaceAddr}::${marketplaceContractName}::get_all_nfts_for_owner`,
-        arguments: [marketplaceAddr, account.address, "100", "0"],
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::get_all_nfts_for_owner`,
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, account.address, "100", "0"],
         type_arguments: [],
       });
 
@@ -61,8 +60,8 @@ const MyNFTs: React.FC = () => {
         nftIds.map(async (id) => {
           try {
             const nftDetails = await client.view({
-              function: `${marketplaceAddr}::${marketplaceContractName}::get_nft_details`,
-              arguments: [marketplaceAddr, id],
+              function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::get_nft_details`,
+              arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, id],
               type_arguments: [],
             });
 
@@ -107,7 +106,7 @@ const MyNFTs: React.FC = () => {
       console.error("Error fetching NFTs:", error);
       message.error("Failed to fetch your NFTs.");
     }
-  }, [account, marketplaceAddr]);
+  }, [account]);
 
   const handleSellClick = (nft: NFT) => {
     setSelectedNft(nft);
@@ -134,9 +133,9 @@ const MyNFTs: React.FC = () => {
   
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::${marketplaceContractName}::list_for_sale`,
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::list_for_sale`,
         type_arguments: [],
-        arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toFixed(0).toString()],
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, selectedNft.id.toString(), priceInOctas.toFixed(0).toString()],
       };
   
       // Bypass type checking
@@ -159,9 +158,9 @@ const MyNFTs: React.FC = () => {
     try {
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::${marketplaceContractName}::transfer_ownership`,
+        function: `${process.env.REACT_APP_MARKETPLACE_ADDR}::${process.env.REACT_APP_MARKETPLACE_CONTRACT_NAME}::transfer_ownership`,
         type_arguments: [],
-        arguments: [marketplaceAddr, selectedNft.id.toString(), recipientAddr],
+        arguments: [process.env.REACT_APP_MARKETPLACE_ADDR, selectedNft.id.toString(), recipientAddr],
       };
   
       // Bypass type checking
@@ -262,7 +261,7 @@ const MyNFTs: React.FC = () => {
   
       <Modal
         title="Sell NFT"
-        visible={isModalVisible === "sell"}
+        open={isModalVisible === "sell"}
         onCancel={handleCancel}
         footer={[
           <Button key="cancel" onClick={handleCancel}>
@@ -284,6 +283,8 @@ const MyNFTs: React.FC = () => {
             <Input
               type="number"
               placeholder="Enter sale price in APT"
+              min={0.001}
+              max={100}
               value={salePrice}
               onChange={(e) => setSalePrice(e.target.value)}
               style={{ marginTop: 10 }}
@@ -294,7 +295,7 @@ const MyNFTs: React.FC = () => {
 
       <Modal
         title="Transfer NFT"
-        visible={isModalVisible === "transfer"}
+        open={isModalVisible === "transfer"}
         onCancel={handleCancel}
         footer={[
           <Button key="cancel" onClick={handleCancel}>
