@@ -75,7 +75,7 @@ This is a submission for [Bounty - Level Up Your Aptos NFT Marketplace dApp (Ful
 ### Prerequisites
 
 - Install Node.js
-- Install Aptos CLI
+- Install/update Aptos CLI
 
 ### Installation
 

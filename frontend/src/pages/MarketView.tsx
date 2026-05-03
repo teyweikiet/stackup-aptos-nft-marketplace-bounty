@@ -40,10 +40,10 @@ const MarketView: React.FC = () => {
   const [isBuyModalVisible, setIsBuyModalVisible] = useState(false);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
 
-  const nftsToDisplay = useMemo(() => {
+  const filteredNfts = useMemo(() => {
     const [minPrice, maxPrice] = priceRange;
 
-    let _nftsToDisplay = [...nfts]
+    return [...nfts]
       .filter(nft => {
         if (nft.price < minPrice || nft.price > maxPrice)
           return false;
@@ -51,20 +51,22 @@ const MarketView: React.FC = () => {
           return nft.rarity === rarity;
         return true;
       });
-    
+  }, [nfts, rarity, priceRange]);
+
+  const nftsToDisplay = useMemo(() => {
     switch (sortOption) {
       case 'date_listed:desc':
-        return _nftsToDisplay.sort((a, b) => b.date_listed - a.date_listed);
+        return filteredNfts.sort((a, b) => b.date_listed - a.date_listed);
       case 'id:desc':
-        return _nftsToDisplay.sort((a, b) => b.id - a.id);
+        return filteredNfts.sort((a, b) => b.id - a.id);
       case 'price:asc':
-        return _nftsToDisplay.sort((a, b) => a.price - b.price);
+        return filteredNfts.sort((a, b) => a.price - b.price);
       case 'price:desc':
-        return _nftsToDisplay.sort((a, b) => b.price - a.price);
+        return filteredNfts.sort((a, b) => b.price - a.price);
       default:
-        return _nftsToDisplay;
+        return filteredNfts;
     }
-  }, [rarity, nfts, sortOption, priceRange]);
+  }, [filteredNfts, sortOption]);
 
   const handleFetchNfts = useCallback(async () => {
     try {
